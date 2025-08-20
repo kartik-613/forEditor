@@ -1,0 +1,23 @@
+const fontOptions = [
+  "Arial, sans-serif",
+  "Helvetica, sans-serif",
+  "'Times New Roman', serif",
+  "Georgia, serif",
+  "Garamond, serif",
+  "'Palatino Linotype', serif",
+  "'Trebuchet MS', sans-serif",
+  "Verdana, sans-serif",
+  "'Courier New', monospace",
+  "'Brush Script MT', cursive",
+  "'Lucida Handwriting', cursive",
+  "'Great Vibes', cursive",
+  "'Dancing Script', cursive",
+  "Pacifico, cursive",
+  "'Playfair Display', serif",
+  "Roboto, sans-serif",
+  "Lora, serif",
+  "Cinzel, serif",
+  "Merriweather, serif",
+  "Satisfy, cursive",
+];
+export default fontOptions;
