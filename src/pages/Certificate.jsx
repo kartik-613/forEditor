@@ -553,7 +553,64 @@ const handleResize = ({ width, height, drag }) => {
   );
 };
 
+// const handleResize = ({ width, height, drag }) => {
+//   if (!certificateRef.current) return;
 
+//   const containerWidth = certificateRef.current.offsetWidth;
+//   const containerHeight = certificateRef.current.offsetHeight;
+
+//   setElements((prev) =>
+//     prev.map((el, idx) => {
+//       if (idx !== selectedIndex) return el;
+
+//       const next = { ...el };
+
+//       let newWidth = Math.round(width);
+//       let newHeight = Math.round(height);
+//       let newX = next.x || 0;
+//       let newY = next.y || 0;
+
+//       if (drag?.beforeTranslate) {
+//         const [dx, dy] = drag.beforeTranslate;
+//         newX += dx;
+//         newY += dy;
+//       }
+
+//       // Smooth clamp LEFT
+//       if (newX < 0) {
+//         newWidth += newX; 
+//         newX = 0;
+//       }
+
+//       // Smooth clamp TOP
+//       if (newY < 0) {
+//         newHeight += newY;
+//         newY = 0;
+//       }
+
+//       // Clamp RIGHT
+//       if (newX + newWidth > containerWidth) {
+//         newWidth = containerWidth - newX;
+//       }
+
+//       // Clamp BOTTOM
+//       if (newY + newHeight > containerHeight) {
+//         newHeight = containerHeight - newY;
+//       }
+
+//       // Minimum size
+//       newWidth = Math.max(20, newWidth);
+//       newHeight = Math.max(20, newHeight);
+
+//       next.width = newWidth;
+//       next.height = newHeight;
+//       next.x = Math.round(newX);
+//       next.y = Math.round(newY);
+
+//       return next;
+//     })
+//   );
+// };
 
 
   const handleRotate = ({ beforeRotate }) => {
