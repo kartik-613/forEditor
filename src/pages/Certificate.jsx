@@ -873,7 +873,7 @@ const handleResize = ({ width, height, drag }) => {
                         </div>
                       </div>
 
-                      {el.type === "text" && (
+                      {/* {el.type === "text" && (
                         <div className="mt-2 grid grid-cols-2 gap-2">
                           <input
                             className="border px-2 py-1 rounded text-sm"
@@ -953,7 +953,93 @@ const handleResize = ({ width, height, drag }) => {
                             }
                           />
                         </div>
-                      )}
+                      )} */}
+{el.type === "text" && (
+  <div className="mt-2 grid grid-cols-2 gap-2">
+    {/* Multi-line text input */}
+    <textarea
+      className="border px-2 py-1 rounded text-sm col-span-2 resize-none"
+      rows={3}
+      value={el.value}
+      onChange={(e) =>
+        handleTextChange(el.id, "value", e.target.value)
+      }
+      placeholder="Enter your text here..."
+    />
+
+    {/* Font Size */}
+    <input
+      type="number"
+      className="border px-2 py-1 rounded text-sm"
+      value={el.fontSize}
+      onChange={(e) =>
+        handleTextChange(
+          el.id,
+          "fontSize",
+          parseInt(e.target.value) || 1
+        )
+      }
+    />
+
+    {/* Color Picker */}
+    <input
+      type="color"
+      className="border px-2 py-1 rounded cursor-pointer"
+      value={el.color}
+      onChange={(e) =>
+        handleTextChange(el.id, "color", e.target.value)
+      }
+    />
+
+    {/* Font Family */}
+    <select
+      className="border px-2 py-1 rounded cursor-pointer"
+      value={el.fontFamily}
+      onChange={(e) =>
+        handleTextChange(el.id, "fontFamily", e.target.value)
+      }
+    >
+      {fontOptions.map((f, i) => (
+        <option
+          key={i}
+          value={f}
+          style={{ fontFamily: f }}
+        >
+          {f.replace(/['"]+/g, "")}
+        </option>
+      ))}
+    </select>
+
+    {/* Font Style */}
+    <select
+      className="border px-2 py-1 rounded cursor-pointer"
+      value={el.fontStyle}
+      onChange={(e) =>
+        handleTextChange(el.id, "fontStyle", e.target.value)
+      }
+    >
+      <option value="normal">Normal</option>
+      <option value="italic">Italic</option>
+      <option value="bold">Bold</option>
+    </select>
+
+    {/* Letter Spacing */}
+    <input
+      type="number"
+      className="border px-2 py-1 rounded text-sm cursor-pointer"
+      value={el.letterSpacing}
+      onChange={(e) =>
+        handleTextChange(
+          el.id,
+          "letterSpacing",
+          parseInt(e.target.value) || 0
+        )
+      }
+    />
+  </div>
+)}
+
+
                     </div>
                   ))}
                 </div>
