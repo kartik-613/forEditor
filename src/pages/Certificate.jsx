@@ -500,6 +500,7 @@ const handleResize = ({ width, height, drag }) => {
       if (idx !== selectedIndex) return el;
 
       const next = { ...el };
+      const isText = el.type === "text";
 
       let newWidth = Math.round(width);
       let newHeight = Math.round(height);
@@ -512,24 +513,18 @@ const handleResize = ({ width, height, drag }) => {
         newY += dy;
       }
 
-      // Smooth clamp LEFT
+      // Clamp inside container
       if (newX < 0) {
-        newWidth += newX; 
+        newWidth += newX;
         newX = 0;
       }
-
-      // Smooth clamp TOP
       if (newY < 0) {
         newHeight += newY;
         newY = 0;
       }
-
-      // Clamp RIGHT
       if (newX + newWidth > containerWidth) {
         newWidth = containerWidth - newX;
       }
-
-      // Clamp BOTTOM
       if (newY + newHeight > containerHeight) {
         newHeight = containerHeight - newY;
       }
@@ -537,6 +532,16 @@ const handleResize = ({ width, height, drag }) => {
       // Minimum size
       newWidth = Math.max(20, newWidth);
       newHeight = Math.max(20, newHeight);
+
+      if (isText) {
+        // Always scale from the original width
+        const baseWidth = el.originalWidth || el.width || newWidth;
+        const baseFontSize = el.originalFontSize || el.fontSize || 16;
+
+        const scale = newWidth / baseWidth;
+
+        next.fontSize = Math.max(8, Math.round(baseFontSize * scale));
+      }
 
       next.width = newWidth;
       next.height = newHeight;
@@ -547,6 +552,8 @@ const handleResize = ({ width, height, drag }) => {
     })
   );
 };
+
+
 
 
   const handleRotate = ({ beforeRotate }) => {
@@ -972,7 +979,7 @@ const handleResize = ({ width, height, drag }) => {
                   <Moveable
                     target={targets[selectedIndex]}
                     draggable
-                    resizable={elements[selectedIndex]?.type === "photo"}
+                    resizable={["photo", "text"].includes(elements[selectedIndex]?.type)}
                     rotatable
                     edge={false}
                     throttleDrag={0}
