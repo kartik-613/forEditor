@@ -4,6 +4,7 @@ import Moveable from "react-moveable";
 import fontOptions from "./fontOptions";
 import loadGoogleFonts from "./loadGoogleFonts";
 import axios from "axios";
+import CertificatePopup from "./CertificatePopup";
 
 const API_PATH = import.meta.env.VITE_API_PATH;
 const API_KEY = import.meta.env.VITE_API_KEY;
@@ -221,6 +222,31 @@ export default function Certificate() {
     setSelectedIndex(elements.length); // select the newly added element
   };
 
+  const addVariableToCanvas = (variable) => {
+    if (!certificateRef.current) return;
+    const rect = certificateRef.current.getBoundingClientRect();
+    const x = Math.round(rect.width / 2 - 60); // center-ish
+    const y = Math.round(rect.height / 2 - 20);
+
+    const newEl = {
+      id: Date.now(),
+      type: "text",
+      value: `#${variable}#`,
+      fontSize: 24,
+      color: "#000",
+      fontStyle: "normal",
+      fontFamily: "sans-serif",
+      letterSpacing: 0,
+      x,
+      y,
+      rotate: 0,
+      ref: React.createRef(),
+    };
+
+    setElements((prev) => [...prev, newEl]);
+    setSelectedIndex(elements.length);
+  };
+
   // Add new text element
   const addTextField = () => {
     const newText = {
@@ -295,7 +321,7 @@ export default function Certificate() {
       const newEl = {
         id: Date.now(),
         type: "text",
-        value: `#{${value}}`,
+        value: `#${value}#`,
         fontSize: 24,
         color: "#000",
         fontStyle: "normal",
@@ -377,24 +403,16 @@ export default function Certificate() {
 
 `;
   };
-  // Save + Download HTML
-  const handleSave = async () => {
-    const userInput = prompt("Please enter certificate title:");
 
-    // If user cancelled or left empty, stop
-    if (!userInput || userInput.trim() === "") {
-      alert("Title is required to save certificate!");
-      return;
-    }
+  const handleSave = async (title) => {
     const htmlContent = generateCertificateHTML();
 
     try {
-      // console.log("first");
       const res = await axios.post(
         `${API_PATH}/api/Certificate_Template`,
         {
           id: null,
-          title: userInput,
+          title: title,
           templatetext: htmlContent,
           createdby: "admin",
           createdon: "",
@@ -405,12 +423,12 @@ export default function Certificate() {
           },
         }
       );
-    if (res.status === 200 || res.status === 201) {
-      alert("Template uploaded successfully!");
-    } else {
-      alert("Something went wrong. Please try again.");
-    }
 
+      if (res.status === 200 || res.status === 201) {
+        alert("Template uploaded successfully!");
+      } else {
+        alert("Something went wrong. Please try again.");
+      }
     } catch (error) {
       console.log(error);
       alert("Failed to upload template!");
@@ -437,40 +455,99 @@ export default function Certificate() {
     );
   };
 
-  // Moveable handlers
-  const handleDrag = ({
-    target,
-    left,
-    top,
-    clientX,
-    clientY,
-    beforeTranslate,
-  }) => {
-    setElements((prev) =>
-      prev.map((el, idx) =>
-        idx === selectedIndex
-          ? { ...el, x: Math.round(left), y: Math.round(top) }
-          : el
-      )
-    );
-  };
 
-  const handleResize = ({ target, width, height, drag }) => {
-    setElements((prev) =>
-      prev.map((el, idx) => {
-        if (idx !== selectedIndex) return el;
-        const next = { ...el };
-        if (typeof width === "number") next.width = Math.round(width);
-        if (typeof height === "number") next.height = Math.round(height);
-        if (drag && drag.beforeTranslate) {
-          const [dx, dy] = drag.beforeTranslate;
-          next.x = Math.round((next.x || 0) + dx);
-          next.y = Math.round((next.y || 0) + dy);
-        }
-        return next;
-      })
-    );
-  };
+const handleDrag = ({ target, left, top }) => {
+  if (!certificateRef.current) return;
+
+  const containerWidth = certificateRef.current.offsetWidth;
+  const containerHeight = certificateRef.current.offsetHeight;
+
+  setElements((prev) =>
+    prev.map((el, idx) => {
+      if (idx !== selectedIndex) return el;
+
+      const next = { ...el };
+
+      let newX = Math.round(left);
+      let newY = Math.round(top);
+
+      // Keep inside LEFT/TOP
+      if (newX < 0) newX = 0;
+      if (newY < 0) newY = 0;
+
+      // Keep inside RIGHT/BOTTOM
+      if (newX + el.width > containerWidth) newX = containerWidth - el.width;
+      if (newY + el.height > containerHeight) newY = containerHeight - el.height;
+
+      next.x = newX;
+      next.y = newY;
+
+      return next;
+    })
+  );
+};
+
+
+
+const handleResize = ({ width, height, drag }) => {
+  if (!certificateRef.current) return;
+
+  const containerWidth = certificateRef.current.offsetWidth;
+  const containerHeight = certificateRef.current.offsetHeight;
+
+  setElements((prev) =>
+    prev.map((el, idx) => {
+      if (idx !== selectedIndex) return el;
+
+      const next = { ...el };
+
+      let newWidth = Math.round(width);
+      let newHeight = Math.round(height);
+      let newX = next.x || 0;
+      let newY = next.y || 0;
+
+      if (drag?.beforeTranslate) {
+        const [dx, dy] = drag.beforeTranslate;
+        newX += dx;
+        newY += dy;
+      }
+
+      // Smooth clamp LEFT
+      if (newX < 0) {
+        newWidth += newX; 
+        newX = 0;
+      }
+
+      // Smooth clamp TOP
+      if (newY < 0) {
+        newHeight += newY;
+        newY = 0;
+      }
+
+      // Clamp RIGHT
+      if (newX + newWidth > containerWidth) {
+        newWidth = containerWidth - newX;
+      }
+
+      // Clamp BOTTOM
+      if (newY + newHeight > containerHeight) {
+        newHeight = containerHeight - newY;
+      }
+
+      // Minimum size
+      newWidth = Math.max(20, newWidth);
+      newHeight = Math.max(20, newHeight);
+
+      next.width = newWidth;
+      next.height = newHeight;
+      next.x = Math.round(newX);
+      next.y = Math.round(newY);
+
+      return next;
+    })
+  );
+};
+
 
   const handleRotate = ({ beforeRotate }) => {
     setElements((prev) =>
@@ -493,9 +570,6 @@ export default function Certificate() {
     }
   };
 
-  // useEffect(() => {
-  //   getPhotoGallery();
-  // }, []);
 
   const getTemplateGallery = async () => {
     try {
@@ -509,39 +583,6 @@ export default function Certificate() {
       console.error("Error fetching template gallery:", err);
     }
   };
-
-  // useEffect(() => {
-  //   getTemplateGallery();
-  // }, []);
-
-  // const getVariables = async () => {
-  //   try {
-  //     const res = await axios.get(`${API_PATH}/api/certificate_variables`, {
-  //       params: { APIKEY: API_KEY, searchtext: "a" },
-  //     });
-  //     console.log("API response:", res.data);
-  //     setVariables(res?.data?.Data);
-  //   } catch (err) {
-  //     console.error("Error fetching variables:", err);
-  //   }
-  // };
-
-  // useEffect(() => {
-  //   getVariables();
-  // }, []);
-
-  // const postVariables = async (newData) => {
-  //   try {
-  //     const res = await axios.post(
-  //       `${API_PATH}/api/certificate_variables`,
-  //       newData, // body
-  //       { params: { APIKEY: API_KEY } } // query params
-  //     );
-  //     setVariables(res?.data?.Data);
-  //   } catch (err) {
-  //     console.error("Error posting variables:", err);
-  //   }
-  // };
 
   const fetchVariableLists = async () => {
     try {
@@ -584,19 +625,19 @@ export default function Certificate() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50 font-sans p-4 sm:p-6">
+    <div className="min-h-screen flex flex-col bg-gray-50 font-sans p-4 sm:p-4">
       <div className="flex flex-col lg:flex-row gap-4 flex-1 overflow-hidden rounded-xl">
         {/* Sidebar */}
         <aside
-          className={`w-full lg:w-[400px] bg-white p-4 rounded-xl shadow-md max-h-[104vh] overflow-y-auto ${
+          className={`w-full lg:w-[400px] bg-white p-2 rounded-xl  ${
             previewMode ? "hidden" : ""
           }`}
         >
-          <h2 className="text-lg font-semibold mb-4 text-gray-700">
+          <h2 className="text-lg font-semibold mb-2 text-gray-700">
             🛠️ Controls
           </h2>
 
-          <div className="space-y-4 text-sm">
+          <div className="space-y-4 text-sm max-h-[88vh] overflow-y-auto ">
             {/* Templates gallery */}
             <div>
               <label className="block font-medium mb-1">Upload Template</label>
@@ -605,7 +646,7 @@ export default function Certificate() {
                 type="file"
                 accept="image/*"
                 onChange={handleTemplatePhotoUpload}
-                className="w-full border rounded px-2 py-1"
+                className="w-full border rounded px-2 py-1 cursor-pointer bg-gray-200"
               />
               <p className="mt-2 text-xs text-gray-500">
                 Uploaded templates are saved to the gallery. Drag one into the
@@ -623,8 +664,10 @@ export default function Certificate() {
                       onDragStart={(e) =>
                         onDragStartTemplate(e, file?.img_path)
                       }
-                      onClick={() => setTemplate(file?.img_path)}
-                      className="cursor-pointer rounded border hover:ring-2 hover:ring-blue-400 w-full h-20 object-cover"
+                      onClick={() =>
+                        setTemplate(`${API_PATH}/uploads/${file?.img_path}`)
+                      }
+                      className="cursor-pointer rounded border hover:ring-1 hover:ring-blue-400 w-full h-20 object-cover"
                     />
                   ))
                 ) : (
@@ -641,7 +684,7 @@ export default function Certificate() {
                 type="file"
                 accept="image/*"
                 onChange={handleTemplatePhotoUpload}
-                className="w-full border rounded px-2 py-1"
+                className="w-full border rounded px-2 py-1 cursor-pointer bg-gray-200"
               />
               <p className="mt-2 text-xs text-gray-500">
                 Photos are saved to the gallery. Drag into canvas to add as an
@@ -658,7 +701,7 @@ export default function Certificate() {
                       draggable
                       onDragStart={(e) => onDragStartPhoto(e, file?.img_path)}
                       onClick={() => addPhotoToCanvas(file?.img_path)}
-                      className="cursor-pointer rounded border hover:ring-2 hover:ring-blue-400 w-full h-20 object-cover"
+                      className="cursor-pointer rounded border hover:ring-1 hover:ring-blue-400 w-full h-20 object-cover"
                     />
                   ))
                 ) : (
@@ -670,13 +713,13 @@ export default function Certificate() {
             <div className="flex gap-2">
               <button
                 onClick={addTextField}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded"
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded cursor-pointer"
               >
                 ➕ Add Text
               </button>
               <button
                 onClick={() => setElements([])}
-                className="flex-1 bg-red-500 hover:bg-red-600 text-white py-2 rounded"
+                className="flex-1 bg-red-500 hover:bg-red-600 text-white py-2 rounded cursor-pointer"
               >
                 Clear Elements
               </button>
@@ -696,7 +739,7 @@ export default function Certificate() {
                 <button
                   onClick={handleAddVariable}
                   // onClick={addVariableField}
-                  className="bg-green-600 hover:bg-green-700 text-white px-4 rounded"
+                  className="bg-green-600 hover:bg-green-700 text-white px-4 rounded cursor-pointer"
                 >
                   ➕
                 </button>
@@ -711,15 +754,16 @@ export default function Certificate() {
                     No variables added yet.
                   </p>
                 ) : (
-                  <div className="flex flex-wrap gap-2 max-h-44 overflow-y-auto">
+                  <div className="flex flex-wrap gap-2 max-h-44 overflow-y-auto ">
                     {variablesList.map((v) => (
                       <div
                         key={v.id}
                         draggable
                         onDragStart={(e) => onDragStartVariable(e, v.variable)}
-                        className="bg-gray-200 px-2 py-1 rounded text-xs cursor-move"
+                        onClick={() => addVariableToCanvas(v.variable)}
+                        className="bg-gray-200 px-2 py-1 rounded text-xs cursor-pointer hover:ring-1 hover:ring-blue-400"
                       >
-                        #{v.variable}
+                        #{v.variable}#
                       </div>
                     ))}
                   </div>
@@ -752,13 +796,13 @@ export default function Certificate() {
                             onClick={() => {
                               setSelectedIndex(idx);
                             }}
-                            className="text-sm px-2 py-1 border rounded"
+                            className="text-sm px-2 py-1 border rounded cursor-pointer"
                           >
                             Select
                           </button>
                           <button
                             onClick={() => removeElement(el.id)}
-                            className="text-sm px-2 py-1 border rounded text-red-600"
+                            className="text-sm px-2 py-1 border rounded text-red-600 cursor-pointer"
                           >
                             Remove
                           </button>
@@ -788,14 +832,14 @@ export default function Certificate() {
                           />
                           <input
                             type="color"
-                            className="border px-2 py-1 rounded"
+                            className="border px-2 py-1 rounded cursor-pointer"
                             value={el.color}
                             onChange={(e) =>
                               handleTextChange(el.id, "color", e.target.value)
                             }
                           />
                           <select
-                            className="border px-2 py-1 rounded"
+                            className="border px-2 py-1 rounded cursor-pointer"
                             value={el.fontFamily}
                             onChange={(e) =>
                               handleTextChange(
@@ -817,7 +861,7 @@ export default function Certificate() {
                           </select>
 
                           <select
-                            className="border px-2 py-1 rounded"
+                            className="border px-2 py-1 rounded cursor-pointer"
                             value={el.fontStyle}
                             onChange={(e) =>
                               handleTextChange(
@@ -834,7 +878,7 @@ export default function Certificate() {
 
                           <input
                             type="number"
-                            className="border px-2 py-1 rounded text-sm"
+                            className="border px-2 py-1 rounded text-sm cursor-pointer"
                             value={el.letterSpacing}
                             onChange={(e) =>
                               handleTextChange(
@@ -857,24 +901,26 @@ export default function Certificate() {
         {/* Main Canvas area */}
 
         <div className="flex flex-col h-full w-full bg-white shadow-md rounded-xl">
-          <main className="flex-1 bg-white p-4 overflow-auto flex items-center justify-center">
+          <main className="flex-1 bg-white p-4 flex items-center justify-center rounded-xl">
             <div
               ref={certificateRef}
               onDragOver={(e) => e.preventDefault()}
               onDrop={handleDrop}
-              className="w-full max-w-full sm:max-w-[700px] md:max-w-[900px] lg:max-w-[1000px] aspect-[10/7] mx-auto border border-gray-300 bg-white shadow relative select-none"
+              className="w-full max-w-full sm:max-w-[700px] md:max-w-[900px] lg:max-w-[1000px] aspect-[10/6.5] mx-auto border border-gray-300 bg-white shadow relative select-none"
             >
               {template ? (
                 <img
                   src={template}
                   alt="Template"
-                  className="template w-full h-full object-cover absolute inset-0"
+                  // className="absolute inset-0 w-full h-full object-cover"
+                  className="absolute inset-0 w-full h-full object-fill"
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-gray-400 text-lg">
                   Please upload or select a certificate template
                 </div>
               )}
+
               {elements.map((el, index) => (
                 <div
                   key={el.id}
@@ -926,31 +972,32 @@ export default function Certificate() {
                   <Moveable
                     target={targets[selectedIndex]}
                     draggable
-                    resizable={elements[selectedIndex].type === "photo"}
+                    resizable={elements[selectedIndex]?.type === "photo"}
                     rotatable
-                    onDrag={handleDrag}
-                    onResize={handleResize}
-                    onRotate={handleRotate}
                     edge={false}
                     throttleDrag={0}
                     throttleResize={0}
                     throttleRotate={0}
+                    onDrag={handleDrag}
+                    onResize={handleResize}
+                    onRotate={handleRotate}
                   />
                 )}
             </div>
           </main>
 
           {/* Buttons row  */}
-          <div className="flex gap-4 mb-4 py-2 px-4">
-            <button
-              onClick={handleSave}
-              className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded transition"
-            >
-              💾 Save (Download HTML)
-            </button>
+          <div className="flex justify-around gap-4 mb-2 py-2 px-4">
+ 
+            <CertificatePopup
+              onSave={handleSave}
+              kk={
+                "flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded transition cursor-pointer"
+              }
+            />
             <button
               onClick={() => setPreviewMode(!previewMode)}
-              className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2 rounded transition"
+              className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2 rounded transition cursor-pointer"
             >
               {previewMode ? "👁️ Exit Preview" : "👁️ Preview Mode"}
             </button>
@@ -963,7 +1010,8 @@ export default function Certificate() {
                 ) {
                   setElements([]);
                   // setVariables([]);
-                  setTemplate(templateGallery[0] || "");
+                  // setTemplate(templateGallery[0] || "");
+                  setTemplate(null);
                   setSelectedIndex(null);
                   try {
                     localStorage.removeItem("cert-elements");
@@ -976,7 +1024,7 @@ export default function Certificate() {
                   // alert("🧹 All data cleared!");
                 }
               }}
-              className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded transition font-bold"
+              className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded transition font-bold cursor-pointer"
             >
               🧹 Clear All
             </button>
