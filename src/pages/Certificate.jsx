@@ -473,30 +473,86 @@ export default function Certificate() {
   };
 
   // 2) Use start + beforeTranslate (no cumulative add!)
+  // const handleResize = ({ width, height, drag }) => {
+  //   const dx = drag?.beforeTranslate?.[0] || 0;
+  //   const dy = drag?.beforeTranslate?.[1] || 0;
+
+  //   setElements((prev) =>
+  //     prev.map((el, idx) => {
+  //       if (idx !== selectedIndex) return el;
+  //       if (el.type !== "photo") return el; // ✅ only photos
+
+  //       const start = resizeStartRef.current || {
+  //         startX: el.x || 0,
+  //         startY: el.y || 0,
+  //       };
+
+  //       return {
+  //         ...el,
+  //         width: Math.round(width),
+  //         height: Math.round(height),
+  //         x: Math.round(start.startX + dx),
+  //         y: Math.round(start.startY + dy),
+  //       };
+  //     })
+  //   );
+  // };
+
   const handleResize = ({ width, height, drag }) => {
-    const dx = drag?.beforeTranslate?.[0] || 0;
-    const dy = drag?.beforeTranslate?.[1] || 0;
+  if (!certificateRef.current) return;
 
-    setElements((prev) =>
-      prev.map((el, idx) => {
-        if (idx !== selectedIndex) return el;
-        if (el.type !== "photo") return el; // ✅ only photos
+  const containerWidth = certificateRef.current.offsetWidth;
+  const containerHeight = certificateRef.current.offsetHeight;
 
-        const start = resizeStartRef.current || {
-          startX: el.x || 0,
-          startY: el.y || 0,
-        };
+  const dx = drag?.beforeTranslate?.[0] || 0;
+  const dy = drag?.beforeTranslate?.[1] || 0;
 
-        return {
-          ...el,
-          width: Math.round(width),
-          height: Math.round(height),
-          x: Math.round(start.startX + dx),
-          y: Math.round(start.startY + dy),
-        };
-      })
-    );
-  };
+  setElements((prev) =>
+    prev.map((el, idx) => {
+      if (idx !== selectedIndex) return el;
+      if (el.type !== "photo") return el;
+
+      const start = resizeStartRef.current || {
+        startX: el.x || 0,
+        startY: el.y || 0,
+      };
+
+      let newX = Math.round(start.startX + dx);
+      let newY = Math.round(start.startY + dy);
+      let newW = Math.round(width);
+      let newH = Math.round(height);
+
+      // 🔒 Clamp inside container
+      if (newX < 0) {
+        newW += newX; // shrink width
+        newX = 0;
+      }
+      if (newY < 0) {
+        newH += newY; // shrink height
+        newY = 0;
+      }
+      if (newX + newW > containerWidth) {
+        newW = containerWidth - newX;
+      }
+      if (newY + newH > containerHeight) {
+        newH = containerHeight - newY;
+      }
+
+      // Minimum size safeguard
+      newW = Math.max(20, newW);
+      newH = Math.max(20, newH);
+
+      return {
+        ...el,
+        width: newW,
+        height: newH,
+        x: newX,
+        y: newY,
+      };
+    })
+  );
+};
+
 
   const handleRotate = ({ beforeRotate }) => {
     setElements((prev) =>
