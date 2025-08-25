@@ -57,14 +57,6 @@ export default function Certificate() {
     }
   });
 
-  // const [variables, setVariables] = useState(() => {
-  //   try {
-  //     const s = localStorage.getItem("cert-variables");
-  //     return s ? JSON.parse(s) : [];
-  //   } catch {
-  //     return [];
-  //   }
-  // });
   const [variables, setVariables] = useState([]);
   const [variablesList, setVariablesList] = useState([]);
 
@@ -106,10 +98,6 @@ export default function Certificate() {
     if (!file) return;
 
     const fileName = file.name;
-    // console.log(fileName);
-    // let parts = fileName.split(".");
-    // const ext = parts.pop();
-    // const base = parts.join(".");
 
     const uuid = uuidv4();
     const uploadName = `${uuid}-${fileName}`;
@@ -149,9 +137,6 @@ export default function Certificate() {
 
       // ✅ Update local states so UI updates instantly
       setImgPath(storedName);
-
-      // ✅ Optimistically add the new image to the grid immediately
-      // setImgUrl((prev) => [{ img_path: storedName }, ...prev]);
     } catch (error) {
       console.error("Error uploading template:", error);
     }
@@ -268,20 +253,6 @@ export default function Certificate() {
     setElements((prev) => [...prev, newText]);
     setSelectedIndex(elements.length);
   };
-
-  // Add variable
-  // const addVariableField = () => {
-  //   if (!variableName.trim()) return;
-
-  //   const newVar = {
-  //     id: Date.now(),
-  //     variable: variableName.trim(),
-  //     createdby: "admin",
-  //   };
-  //   setVariables((prev) => [...prev, newVar]);
-  //   postVariables(newVar);
-  //   // setVariableName("");
-  // };
 
   // Drop handler
   const handleDrop = (e) => {
@@ -455,163 +426,77 @@ export default function Certificate() {
     );
   };
 
+  const handleDrag = ({ target, left, top }) => {
+    if (!certificateRef.current) return;
 
-const handleDrag = ({ target, left, top }) => {
-  if (!certificateRef.current) return;
+    const containerWidth = certificateRef.current.offsetWidth;
+    const containerHeight = certificateRef.current.offsetHeight;
 
-  const containerWidth = certificateRef.current.offsetWidth;
-  const containerHeight = certificateRef.current.offsetHeight;
+    setElements((prev) =>
+      prev.map((el, idx) => {
+        if (idx !== selectedIndex) return el;
 
-  setElements((prev) =>
-    prev.map((el, idx) => {
-      if (idx !== selectedIndex) return el;
+        const next = { ...el };
 
-      const next = { ...el };
+        let newX = Math.round(left);
+        let newY = Math.round(top);
 
-      let newX = Math.round(left);
-      let newY = Math.round(top);
+        // Keep inside LEFT/TOP
+        if (newX < 0) newX = 0;
+        if (newY < 0) newY = 0;
 
-      // Keep inside LEFT/TOP
-      if (newX < 0) newX = 0;
-      if (newY < 0) newY = 0;
+        // Keep inside RIGHT/BOTTOM
+        if (newX + el.width > containerWidth) newX = containerWidth - el.width;
+        if (newY + el.height > containerHeight)
+          newY = containerHeight - el.height;
 
-      // Keep inside RIGHT/BOTTOM
-      if (newX + el.width > containerWidth) newX = containerWidth - el.width;
-      if (newY + el.height > containerHeight) newY = containerHeight - el.height;
+        next.x = newX;
+        next.y = newY;
 
-      next.x = newX;
-      next.y = newY;
+        return next;
+      })
+    );
+  };
 
-      return next;
-    })
-  );
-};
+  // 1) Keep the starting x/y/size for the active resize
+  const resizeStartRef = useRef(null);
 
+  const handleResizeStart = () => {
+    const el = elements[selectedIndex];
+    if (!el || el.type !== "photo") return;
+    resizeStartRef.current = {
+      startX: el.x || 0,
+      startY: el.y || 0,
+      startW: el.width || 0,
+      startH: el.height || 0,
+    };
+  };
 
+  // 2) Use start + beforeTranslate (no cumulative add!)
+  const handleResize = ({ width, height, drag }) => {
+    const dx = drag?.beforeTranslate?.[0] || 0;
+    const dy = drag?.beforeTranslate?.[1] || 0;
 
-const handleResize = ({ width, height, drag }) => {
-  if (!certificateRef.current) return;
+    setElements((prev) =>
+      prev.map((el, idx) => {
+        if (idx !== selectedIndex) return el;
+        if (el.type !== "photo") return el; // ✅ only photos
 
-  const containerWidth = certificateRef.current.offsetWidth;
-  const containerHeight = certificateRef.current.offsetHeight;
+        const start = resizeStartRef.current || {
+          startX: el.x || 0,
+          startY: el.y || 0,
+        };
 
-  setElements((prev) =>
-    prev.map((el, idx) => {
-      if (idx !== selectedIndex) return el;
-
-      const next = { ...el };
-      const isText = el.type === "text";
-
-      let newWidth = Math.round(width);
-      let newHeight = Math.round(height);
-      let newX = next.x || 0;
-      let newY = next.y || 0;
-
-      if (drag?.beforeTranslate) {
-        const [dx, dy] = drag.beforeTranslate;
-        newX += dx;
-        newY += dy;
-      }
-
-      // Clamp inside container
-      if (newX < 0) {
-        newWidth += newX;
-        newX = 0;
-      }
-      if (newY < 0) {
-        newHeight += newY;
-        newY = 0;
-      }
-      if (newX + newWidth > containerWidth) {
-        newWidth = containerWidth - newX;
-      }
-      if (newY + newHeight > containerHeight) {
-        newHeight = containerHeight - newY;
-      }
-
-      // Minimum size
-      newWidth = Math.max(20, newWidth);
-      newHeight = Math.max(20, newHeight);
-
-      if (isText) {
-        // Always scale from the original width
-        const baseWidth = el.originalWidth || el.width || newWidth;
-        const baseFontSize = el.originalFontSize || el.fontSize || 16;
-
-        const scale = newWidth / baseWidth;
-
-        next.fontSize = Math.max(8, Math.round(baseFontSize * scale));
-      }
-
-      next.width = newWidth;
-      next.height = newHeight;
-      next.x = Math.round(newX);
-      next.y = Math.round(newY);
-
-      return next;
-    })
-  );
-};
-
-// const handleResize = ({ width, height, drag }) => {
-//   if (!certificateRef.current) return;
-
-//   const containerWidth = certificateRef.current.offsetWidth;
-//   const containerHeight = certificateRef.current.offsetHeight;
-
-//   setElements((prev) =>
-//     prev.map((el, idx) => {
-//       if (idx !== selectedIndex) return el;
-
-//       const next = { ...el };
-
-//       let newWidth = Math.round(width);
-//       let newHeight = Math.round(height);
-//       let newX = next.x || 0;
-//       let newY = next.y || 0;
-
-//       if (drag?.beforeTranslate) {
-//         const [dx, dy] = drag.beforeTranslate;
-//         newX += dx;
-//         newY += dy;
-//       }
-
-//       // Smooth clamp LEFT
-//       if (newX < 0) {
-//         newWidth += newX; 
-//         newX = 0;
-//       }
-
-//       // Smooth clamp TOP
-//       if (newY < 0) {
-//         newHeight += newY;
-//         newY = 0;
-//       }
-
-//       // Clamp RIGHT
-//       if (newX + newWidth > containerWidth) {
-//         newWidth = containerWidth - newX;
-//       }
-
-//       // Clamp BOTTOM
-//       if (newY + newHeight > containerHeight) {
-//         newHeight = containerHeight - newY;
-//       }
-
-//       // Minimum size
-//       newWidth = Math.max(20, newWidth);
-//       newHeight = Math.max(20, newHeight);
-
-//       next.width = newWidth;
-//       next.height = newHeight;
-//       next.x = Math.round(newX);
-//       next.y = Math.round(newY);
-
-//       return next;
-//     })
-//   );
-// };
-
+        return {
+          ...el,
+          width: Math.round(width),
+          height: Math.round(height),
+          x: Math.round(start.startX + dx),
+          y: Math.round(start.startY + dy),
+        };
+      })
+    );
+  };
 
   const handleRotate = ({ beforeRotate }) => {
     setElements((prev) =>
@@ -633,7 +518,6 @@ const handleResize = ({ width, height, drag }) => {
       console.error("Error fetching photo gallery:", err);
     }
   };
-
 
   const getTemplateGallery = async () => {
     try {
@@ -873,15 +757,20 @@ const handleResize = ({ width, height, drag }) => {
                         </div>
                       </div>
 
-                      {/* {el.type === "text" && (
+                      {el.type === "text" && (
                         <div className="mt-2 grid grid-cols-2 gap-2">
-                          <input
-                            className="border px-2 py-1 rounded text-sm"
+                          {/* Multi-line text input */}
+                          <textarea
+                            className="border px-2 py-1 rounded text-sm col-span-2 resize-none"
+                            rows={3}
                             value={el.value}
                             onChange={(e) =>
                               handleTextChange(el.id, "value", e.target.value)
                             }
+                            placeholder="Enter your text here..."
                           />
+
+                          {/* Font Size */}
                           <input
                             type="number"
                             className="border px-2 py-1 rounded text-sm"
@@ -894,6 +783,8 @@ const handleResize = ({ width, height, drag }) => {
                               )
                             }
                           />
+
+                          {/* Color Picker */}
                           <input
                             type="color"
                             className="border px-2 py-1 rounded cursor-pointer"
@@ -902,6 +793,8 @@ const handleResize = ({ width, height, drag }) => {
                               handleTextChange(el.id, "color", e.target.value)
                             }
                           />
+
+                          {/* Font Family */}
                           <select
                             className="border px-2 py-1 rounded cursor-pointer"
                             value={el.fontFamily}
@@ -924,6 +817,7 @@ const handleResize = ({ width, height, drag }) => {
                             ))}
                           </select>
 
+                          {/* Font Style */}
                           <select
                             className="border px-2 py-1 rounded cursor-pointer"
                             value={el.fontStyle}
@@ -940,6 +834,7 @@ const handleResize = ({ width, height, drag }) => {
                             <option value="bold">Bold</option>
                           </select>
 
+                          {/* Letter Spacing */}
                           <input
                             type="number"
                             className="border px-2 py-1 rounded text-sm cursor-pointer"
@@ -953,93 +848,7 @@ const handleResize = ({ width, height, drag }) => {
                             }
                           />
                         </div>
-                      )} */}
-{el.type === "text" && (
-  <div className="mt-2 grid grid-cols-2 gap-2">
-    {/* Multi-line text input */}
-    <textarea
-      className="border px-2 py-1 rounded text-sm col-span-2 resize-none"
-      rows={3}
-      value={el.value}
-      onChange={(e) =>
-        handleTextChange(el.id, "value", e.target.value)
-      }
-      placeholder="Enter your text here..."
-    />
-
-    {/* Font Size */}
-    <input
-      type="number"
-      className="border px-2 py-1 rounded text-sm"
-      value={el.fontSize}
-      onChange={(e) =>
-        handleTextChange(
-          el.id,
-          "fontSize",
-          parseInt(e.target.value) || 1
-        )
-      }
-    />
-
-    {/* Color Picker */}
-    <input
-      type="color"
-      className="border px-2 py-1 rounded cursor-pointer"
-      value={el.color}
-      onChange={(e) =>
-        handleTextChange(el.id, "color", e.target.value)
-      }
-    />
-
-    {/* Font Family */}
-    <select
-      className="border px-2 py-1 rounded cursor-pointer"
-      value={el.fontFamily}
-      onChange={(e) =>
-        handleTextChange(el.id, "fontFamily", e.target.value)
-      }
-    >
-      {fontOptions.map((f, i) => (
-        <option
-          key={i}
-          value={f}
-          style={{ fontFamily: f }}
-        >
-          {f.replace(/['"]+/g, "")}
-        </option>
-      ))}
-    </select>
-
-    {/* Font Style */}
-    <select
-      className="border px-2 py-1 rounded cursor-pointer"
-      value={el.fontStyle}
-      onChange={(e) =>
-        handleTextChange(el.id, "fontStyle", e.target.value)
-      }
-    >
-      <option value="normal">Normal</option>
-      <option value="italic">Italic</option>
-      <option value="bold">Bold</option>
-    </select>
-
-    {/* Letter Spacing */}
-    <input
-      type="number"
-      className="border px-2 py-1 rounded text-sm cursor-pointer"
-      value={el.letterSpacing}
-      onChange={(e) =>
-        handleTextChange(
-          el.id,
-          "letterSpacing",
-          parseInt(e.target.value) || 0
-        )
-      }
-    />
-  </div>
-)}
-
-
+                      )}
                     </div>
                   ))}
                 </div>
@@ -1122,13 +931,16 @@ const handleResize = ({ width, height, drag }) => {
                   <Moveable
                     target={targets[selectedIndex]}
                     draggable
-                    resizable={["photo", "text"].includes(elements[selectedIndex]?.type)}
+                    resizable={["photo", "text"].includes(
+                      elements[selectedIndex]?.type
+                    )}
                     rotatable
                     edge={false}
                     throttleDrag={0}
                     throttleResize={0}
                     throttleRotate={0}
                     onDrag={handleDrag}
+                    onResizeStart={handleResizeStart}
                     onResize={handleResize}
                     onRotate={handleRotate}
                   />
@@ -1138,7 +950,6 @@ const handleResize = ({ width, height, drag }) => {
 
           {/* Buttons row  */}
           <div className="flex justify-around gap-4 mb-2 py-2 px-4">
- 
             <CertificatePopup
               onSave={handleSave}
               kk={
