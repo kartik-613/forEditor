@@ -10,6 +10,10 @@ const API_PATH = import.meta.env.VITE_API_PATH;
 const API_KEY = import.meta.env.VITE_API_KEY;
 
 export default function Certificate() {
+  const transientRef = useRef({
+    // [el.id]: { startX, startY, tx, ty, startW, startH, startRotate }
+  });
+
   const certificateRef = useRef(null);
   const [selectedFile, setSelectedFile] = useState("");
   const [templateFiles, setTemplateFiles] = useState([]);
@@ -17,6 +21,26 @@ export default function Certificate() {
 
   const [imgPath, setImgPath] = useState("");
   const [imgUrl, setImgUrl] = useState([]);
+
+  const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
+
+  const getCanvasRect = () => {
+    const r = certificateRef.current?.getBoundingClientRect();
+    return r || { left: 0, top: 0, width: 0, height: 0 };
+  };
+
+  const getElementSize = (el, target) => {
+    // prefer state width/height if present, else measure current
+    if (el.type === "photo") {
+      return {
+        w: el.width ?? target?.getBoundingClientRect().width ?? 0,
+        h: el.height ?? target?.getBoundingClientRect().height ?? 0,
+      };
+    }
+    // text: use its box
+    const rect = target?.getBoundingClientRect();
+    return { w: rect?.width ?? 0, h: rect?.height ?? 0 };
+  };
 
   // Load Google Fonts once
   useEffect(() => {
@@ -394,6 +418,7 @@ export default function Certificate() {
           },
         }
       );
+      console.log(res);
 
       if (res.status === 200 || res.status === 201) {
         alert("Template uploaded successfully!");
@@ -426,51 +451,51 @@ export default function Certificate() {
     );
   };
 
-  const handleDrag = ({ target, left, top }) => {
-    if (!certificateRef.current) return;
+  // const handleDrag = ({ target, left, top }) => {
+  //   if (!certificateRef.current) return;
 
-    const containerWidth = certificateRef.current.offsetWidth;
-    const containerHeight = certificateRef.current.offsetHeight;
+  //   const containerWidth = certificateRef.current.offsetWidth;
+  //   const containerHeight = certificateRef.current.offsetHeight;
 
-    setElements((prev) =>
-      prev.map((el, idx) => {
-        if (idx !== selectedIndex) return el;
+  //   setElements((prev) =>
+  //     prev.map((el, idx) => {
+  //       if (idx !== selectedIndex) return el;
 
-        const next = { ...el };
+  //       const next = { ...el };
 
-        let newX = Math.round(left);
-        let newY = Math.round(top);
+  //       let newX = Math.round(left);
+  //       let newY = Math.round(top);
 
-        // Keep inside LEFT/TOP
-        if (newX < 0) newX = 0;
-        if (newY < 0) newY = 0;
+  //       // Keep inside LEFT/TOP
+  //       if (newX < 0) newX = 0;
+  //       if (newY < 0) newY = 0;
 
-        // Keep inside RIGHT/BOTTOM
-        if (newX + el.width > containerWidth) newX = containerWidth - el.width;
-        if (newY + el.height > containerHeight)
-          newY = containerHeight - el.height;
+  //       // Keep inside RIGHT/BOTTOM
+  //       if (newX + el.width > containerWidth) newX = containerWidth - el.width;
+  //       if (newY + el.height > containerHeight)
+  //         newY = containerHeight - el.height;
 
-        next.x = newX;
-        next.y = newY;
+  //       next.x = newX;
+  //       next.y = newY;
 
-        return next;
-      })
-    );
-  };
+  //       return next;
+  //     })
+  //   );
+  // };
 
   // 1) Keep the starting x/y/size for the active resize
   const resizeStartRef = useRef(null);
 
-  const handleResizeStart = () => {
-    const el = elements[selectedIndex];
-    if (!el || el.type !== "photo") return;
-    resizeStartRef.current = {
-      startX: el.x || 0,
-      startY: el.y || 0,
-      startW: el.width || 0,
-      startH: el.height || 0,
-    };
-  };
+  // const handleResizeStart = () => {
+  //   const el = elements[selectedIndex];
+  //   if (!el || el.type !== "photo") return;
+  //   resizeStartRef.current = {
+  //     startX: el.x || 0,
+  //     startY: el.y || 0,
+  //     startW: el.width || 0,
+  //     startH: el.height || 0,
+  //   };
+  // };
 
   // 2) Use start + beforeTranslate (no cumulative add!)
   // const handleResize = ({ width, height, drag }) => {
@@ -498,69 +523,68 @@ export default function Certificate() {
   //   );
   // };
 
-  const handleResize = ({ width, height, drag }) => {
-  if (!certificateRef.current) return;
+  //   const handleResize = ({ width, height, drag }) => {
+  //   if (!certificateRef.current) return;
 
-  const containerWidth = certificateRef.current.offsetWidth;
-  const containerHeight = certificateRef.current.offsetHeight;
+  //   const containerWidth = certificateRef.current.offsetWidth;
+  //   const containerHeight = certificateRef.current.offsetHeight;
 
-  const dx = drag?.beforeTranslate?.[0] || 0;
-  const dy = drag?.beforeTranslate?.[1] || 0;
+  //   const dx = drag?.beforeTranslate?.[0] || 0;
+  //   const dy = drag?.beforeTranslate?.[1] || 0;
 
-  setElements((prev) =>
-    prev.map((el, idx) => {
-      if (idx !== selectedIndex) return el;
-      if (el.type !== "photo") return el;
+  //   setElements((prev) =>
+  //     prev.map((el, idx) => {
+  //       if (idx !== selectedIndex) return el;
+  //       if (el.type !== "photo") return el;
 
-      const start = resizeStartRef.current || {
-        startX: el.x || 0,
-        startY: el.y || 0,
-      };
+  //       const start = resizeStartRef.current || {
+  //         startX: el.x || 0,
+  //         startY: el.y || 0,
+  //       };
 
-      let newX = Math.round(start.startX + dx);
-      let newY = Math.round(start.startY + dy);
-      let newW = Math.round(width);
-      let newH = Math.round(height);
+  //       let newX = Math.round(start.startX + dx);
+  //       let newY = Math.round(start.startY + dy);
+  //       let newW = Math.round(width);
+  //       let newH = Math.round(height);
 
-      // 🔒 Clamp inside container
-      if (newX < 0) {
-        newW += newX; // shrink width
-        newX = 0;
-      }
-      if (newY < 0) {
-        newH += newY; // shrink height
-        newY = 0;
-      }
-      if (newX + newW > containerWidth) {
-        newW = containerWidth - newX;
-      }
-      if (newY + newH > containerHeight) {
-        newH = containerHeight - newY;
-      }
+  //       // 🔒 Clamp inside container
+  //       if (newX < 0) {
+  //         newW += newX; // shrink width
+  //         newX = 0;
+  //       }
+  //       if (newY < 0) {
+  //         newH += newY; // shrink height
+  //         newY = 0;
+  //       }
+  //       if (newX + newW > containerWidth) {
+  //         newW = containerWidth - newX;
+  //       }
+  //       if (newY + newH > containerHeight) {
+  //         newH = containerHeight - newY;
+  //       }
 
-      // Minimum size safeguard
-      newW = Math.max(20, newW);
-      newH = Math.max(20, newH);
+  //       // Minimum size safeguard
+  //       newW = Math.max(20, newW);
+  //       newH = Math.max(20, newH);
 
-      return {
-        ...el,
-        width: newW,
-        height: newH,
-        x: newX,
-        y: newY,
-      };
-    })
-  );
-};
+  //       return {
+  //         ...el,
+  //         width: newW,
+  //         height: newH,
+  //         x: newX,
+  //         y: newY,
+  //       };
+  //     })
+  //   );
+  // };
 
-
-  const handleRotate = ({ beforeRotate }) => {
-    setElements((prev) =>
-      prev.map((el, idx) =>
-        idx === selectedIndex ? { ...el, rotate: Math.round(beforeRotate) } : el
-      )
-    );
-  };
+  // const handleRotate = ({ beforeRotate }) => {
+  //   setElements((prev) =>
+  //     prev.map((el, idx) =>
+  //       idx === selectedIndex ? { ...el, rotate: Math.round(beforeRotate) } : el
+  //     )
+  //   );
+  // };
 
   const getPhotoGallery = async () => {
     try {
@@ -626,6 +650,284 @@ export default function Certificate() {
     } catch (error) {
       console.log(error);
     }
+  };
+  // ==========================================
+
+  const handleDragStart = ({ target }) => {
+    if (selectedIndex == null) return;
+    const el = elements[selectedIndex];
+    if (!el) return;
+
+    transientRef.current[el.id] = {
+      startX: el.x,
+      startY: el.y,
+      tx: 0,
+      ty: 0,
+      startW: el.width ?? 0,
+      startH: el.height ?? 0,
+      startRotate: el.rotate ?? 0,
+    };
+
+    // ensure the element is positioned by transform during gesture
+    target.style.willChange = "transform";
+  };
+
+  // const handleDrag = ({ target, beforeTranslate }) => {
+  //   if (selectedIndex == null) return;
+  //   const el = elements[selectedIndex];
+  //   if (!el) return;
+
+  //   // just visually move; do NOT set state here
+  //   const [tx, ty] = beforeTranslate;
+  //   const t = transientRef.current[el.id];
+  //   if (t) {
+  //     t.tx = tx;
+  //     t.ty = ty;
+  //   }
+  //   target.style.transform = `translate(${tx}px, ${ty}px) rotate(${
+  //     (t?.startRotate ?? el.rotate) || 0
+  //   }deg)`;
+  // };
+  const handleDrag = ({ target, beforeTranslate }) => {
+    if (selectedIndex == null) return;
+    const el = elements[selectedIndex];
+    if (!el || !certificateRef.current) return;
+
+    const t = transientRef.current[el.id];
+    if (!t) return;
+
+    const [txRaw, tyRaw] = beforeTranslate;
+
+    // compute proposed absolute top/left
+    const proposedLeft = t.startX + txRaw;
+    const proposedTop = t.startY + tyRaw;
+
+    const canvas = getCanvasRect();
+    const { w: elW, h: elH } = getElementSize(el, target);
+
+    // NOTE: this bounds ignores rotation for simplicity. Works well in most UIs.
+    const minLeft = 0;
+    const minTop = 0;
+    const maxLeft = Math.max(0, canvas.width - elW);
+    const maxTop = Math.max(0, canvas.height - elH);
+
+    const clampedLeft = clamp(proposedLeft, minLeft, maxLeft);
+    const clampedTop = clamp(proposedTop, minTop, maxTop);
+
+    const tx = clampedLeft - t.startX;
+    const ty = clampedTop - t.startY;
+
+    t.tx = tx;
+    t.ty = ty;
+
+    target.style.transform = `translate(${tx}px, ${ty}px) rotate(${
+      t.startRotate ?? el.rotate ?? 0
+    }deg)`;
+  };
+
+  const handleDragEnd = () => {
+    if (selectedIndex == null) return;
+    const el = elements[selectedIndex];
+    const t = transientRef.current[el.id];
+    if (!t) return;
+
+    // commit to state: new absolute x/y
+    setElements((prev) =>
+      prev.map((itm, i) =>
+        i === selectedIndex
+          ? {
+              ...itm,
+              x: Math.round(t.startX + t.tx),
+              y: Math.round(t.startY + t.ty),
+            }
+          : itm
+      )
+    );
+
+    // cleanup inline transform; next gesture starts from clean top/left
+    if (el.ref.current) {
+      el.ref.current.style.transform = `rotate(${t.startRotate}deg)`;
+      el.ref.current.style.willChange = "";
+    }
+    delete transientRef.current[el.id];
+  };
+
+  const handleResizeStart = ({ target }) => {
+    if (selectedIndex == null) return;
+    const el = elements[selectedIndex];
+    if (!el) return;
+
+    transientRef.current[el.id] = {
+      startX: el.x,
+      startY: el.y,
+      tx: 0,
+      ty: 0,
+      startW: el.width || target.getBoundingClientRect().width,
+      startH: el.height || target.getBoundingClientRect().height,
+      startRotate: el.rotate ?? 0,
+      startFont: el.fontSize ?? 16,
+    };
+
+    target.style.willChange = "transform,width,height";
+  };
+
+  // const handleResize = ({ target, width, height, drag }) => {
+  //   if (selectedIndex == null) return;
+  //   const el = elements[selectedIndex];
+  //   if (!el) return;
+
+  //   const t = transientRef.current[el.id];
+  //   const [tx, ty] = drag.beforeTranslate;
+
+  //   // VISUAL ONLY: set size and transform
+  //   target.style.width = `${Math.max(10, Math.round(width))}px`;
+  //   target.style.height = `${Math.max(10, Math.round(height))}px`;
+  //   target.style.transform = `translate(${tx}px, ${ty}px) rotate(${
+  //     t?.startRotate ?? 0
+  //   }deg)`;
+
+  //   if (el.type === "text" && t) {
+  //     const ratio = t.startH ? height / t.startH : 1;
+  //     const scaled = Math.max(6, Math.round((t.startFont || 16) * ratio));
+  //     // live preview of font size during gesture
+  //     target.style.fontSize = `${scaled}px`;
+  //   }
+
+  //   if (t) {
+  //     t.tx = tx;
+  //     t.ty = ty;
+  //   }
+  // };
+  const handleResize = ({ target, width, height, drag }) => {
+    if (selectedIndex == null) return;
+    const el = elements[selectedIndex];
+    if (!el || !certificateRef.current) return;
+
+    const t = transientRef.current[el.id];
+    if (!t) return;
+
+    const canvas = getCanvasRect();
+
+    // desired position during resize (Moveable gives translation)
+    let [tx, ty] = drag.beforeTranslate;
+
+    // Original absolute
+    const absLeftStart = t.startX;
+    const absTopStart = t.startY;
+
+    // Clamp width/height so the box never exceeds canvas
+    let W = Math.max(10, Math.round(width));
+    let H = Math.max(10, Math.round(height));
+
+    // First clamp translation so top/left >= 0
+    let absLeft = absLeftStart + tx;
+    let absTop = absTopStart + ty;
+
+    if (absLeft < 0) {
+      tx -= absLeft; // move back in
+      absLeft = 0;
+    }
+    if (absTop < 0) {
+      ty -= absTop;
+      absTop = 0;
+    }
+
+    // Then clamp size so right/bottom <= canvas
+    const maxW = canvas.width - absLeft;
+    const maxH = canvas.height - absTop;
+    if (W > maxW) W = maxW;
+    if (H > maxH) H = maxH;
+
+    // VISUAL set size and transform
+    target.style.width = `${W}px`;
+    target.style.height = `${H}px`;
+    target.style.transform = `translate(${tx}px, ${ty}px) rotate(${
+      t.startRotate ?? 0
+    }deg)`;
+
+    // live text font scaling
+    if (el.type === "text" && t.startH) {
+      const ratio = H / t.startH;
+      const scaled = Math.max(6, Math.round((t.startFont || 16) * ratio));
+      target.style.fontSize = `${scaled}px`;
+    }
+
+    // store transient
+    t.tx = tx;
+    t.ty = ty;
+  };
+
+  const handleResizeEnd = ({ target }) => {
+    if (selectedIndex == null) return;
+    const el = elements[selectedIndex];
+    const t = transientRef.current[el.id];
+    if (!t) return;
+
+    setElements((prev) =>
+      prev.map((itm, i) => {
+        if (i !== selectedIndex) return itm;
+
+        if (itm.type === "photo") {
+          const rect = target.getBoundingClientRect();
+          return {
+            ...itm,
+            x: Math.round(t.startX + t.tx),
+            y: Math.round(t.startY + t.ty),
+            width: Math.round(rect.width),
+            height: Math.round(rect.height),
+          };
+        } else {
+          // commit text x/y + computed font size
+          const rect = target.getBoundingClientRect();
+          // read back live font size
+          const computed =
+            parseInt(getComputedStyle(target).fontSize, 10) ||
+            itm.fontSize ||
+            16;
+          return {
+            ...itm,
+            x: Math.round(t.startX + t.tx),
+            y: Math.round(t.startY + t.ty),
+            fontSize: computed,
+            // optional: store width/height if you want a bounding box
+            width: Math.round(rect.width),
+            height: Math.round(rect.height),
+          };
+        }
+      })
+    );
+
+    // clean inline styles
+    target.style.transform = `rotate(${t.startRotate || 0}deg)`;
+    target.style.willChange = "";
+    // text preview fontSize can remain; React state will re-render it anyway
+
+    delete transientRef.current[el.id];
+  };
+
+  const handleRotateStart = () => {
+    if (selectedIndex == null) return;
+    const el = elements[selectedIndex];
+    if (!el) return;
+    transientRef.current[el.id] = {
+      ...(transientRef.current[el.id] || {}),
+      startRotate: el.rotate ?? 0,
+    };
+  };
+
+  const handleRotate = ({ target, beforeRotate }) => {
+    // live rotation preview only
+    target.style.transform = `rotate(${beforeRotate}deg)`;
+  };
+
+  const handleRotateEnd = ({ beforeRotate, target }) => {
+    if (selectedIndex == null) return;
+    setElements((prev) =>
+      prev.map((el, i) =>
+        i === selectedIndex ? { ...el, rotate: beforeRotate } : el
+      )
+    );
+    target.style.transform = `rotate(${beforeRotate}deg)`;
   };
 
   return (
@@ -974,6 +1276,9 @@ export default function Certificate() {
                         width: "100%",
                         height: "100%",
                         objectFit: "cover",
+                        display: "block",
+                        pointerEvents: "none",
+                        userSelect: "none",
                       }}
                     />
                   ) : (
@@ -984,6 +1289,23 @@ export default function Certificate() {
               {!previewMode &&
                 selectedIndex !== null &&
                 targets[selectedIndex] && (
+                  // <Moveable
+                  //   target={targets[selectedIndex]}
+                  //   draggable
+                  //   resizable={["photo", "text"].includes(
+                  //     elements[selectedIndex]?.type
+                  //   )}
+                  //   rotatable
+                  //   edge={false}
+                  //   throttleDrag={0}
+                  //   throttleResize={0}
+                  //   throttleRotate={0}
+                  //   onDrag={handleDrag}
+                  //   onResizeStart={handleResizeStart}
+                  //   onResize={handleResize}
+                  //   onRotate={handleRotate}
+                  // />
+
                   <Moveable
                     target={targets[selectedIndex]}
                     draggable
@@ -991,14 +1313,30 @@ export default function Certificate() {
                       elements[selectedIndex]?.type
                     )}
                     rotatable
-                    edge={false}
-                    throttleDrag={0}
-                    throttleResize={0}
-                    throttleRotate={0}
+                    origin={false}
+                    snappable
+                    snapCenter
+                    snapHorizontal
+                    snapVertical
+                    snapThreshold={8}
+                    elementGuidelines={[certificateRef]}
+                    // jitter-free handlers
+                    onDragStart={handleDragStart}
                     onDrag={handleDrag}
+                    onDragEnd={handleDragEnd}
                     onResizeStart={handleResizeStart}
                     onResize={handleResize}
+                    onResizeEnd={handleResizeEnd}
+                    onRotateStart={handleRotateStart}
                     onRotate={handleRotate}
+                    onRotateEnd={handleRotateEnd}
+                    bounds={{
+                      left: 0,
+                      top: 0,
+                      right: certificateRef.current?.clientWidth ?? 0,
+                      bottom: certificateRef.current?.clientHeight ?? 0,
+                    }}
+                    rootContainer={certificateRef.current}
                   />
                 )}
             </div>
